@@ -11,7 +11,16 @@ public sealed class ApplicationDetailsViewModel
     public required IReadOnlyList<ApiKeyDto> ApiKeys { get; init; }
     public required IReadOnlyList<FeedbackFieldDefinitionDto> CustomFields { get; init; }
     public GenerateApiKeyResult? NewlyGeneratedKey { get; init; }
+
+    /// <summary>Shown once, right after generating a key: a curl example using the real, one-time secret.</summary>
     public string? CurlSnippet { get; init; }
-    public CreateCustomFieldViewModel NewCustomField { get; set; } = new();
+
+    /// <summary>
+    /// Always available (API Key Example modal): a curl example reflecting the app's current custom
+    /// fields, using the real key if one was just generated this request, otherwise a placeholder.
+    /// </summary>
+    public required string GeneralCurlSnippet { get; init; }
+
+    public List<CreateCustomFieldViewModel> NewCustomFields { get; set; } = [new()];
     public bool CanManageRateLimit { get; init; }
 }

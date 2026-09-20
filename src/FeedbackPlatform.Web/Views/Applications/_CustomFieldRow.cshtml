@@ -1,0 +1,42 @@
+@model FeedbackPlatform.Web.Models.Applications.CreateCustomFieldViewModel
+@{
+    var index = (int)ViewData["Index"]!;
+    var prefix = $"NewCustomFields[{index}]";
+}
+
+<div class="row g-2 mb-2 field-row align-items-end">
+    <div class="col-md-2">
+        <label class="form-label">Field key</label>
+        <input name="@(prefix).FieldKey" class="form-control" value="@Model.FieldKey" placeholder="browser_name" />
+    </div>
+    <div class="col-md-2">
+        <label class="form-label">Label</label>
+        <input name="@(prefix).Label" class="form-control" value="@Model.Label" placeholder="Browser Name" />
+    </div>
+    <div class="col-md-2">
+        <label class="form-label">Type</label>
+        <select name="@(prefix).FieldType" class="form-select">
+            @foreach (var option in Html.GetEnumSelectList<FeedbackPlatform.Domain.Enums.FeedbackFieldType>())
+            {
+                <option value="@option.Value" selected="@(option.Value == ((int)Model.FieldType).ToString())">@option.Text</option>
+            }
+        </select>
+    </div>
+    <div class="col-md-2">
+        <label class="form-label">Options (CSV)</label>
+        <input name="@(prefix).OptionsCsv" class="form-control" value="@Model.OptionsCsv" placeholder="Chrome,Firefox,Safari" />
+    </div>
+    <div class="col-md-1">
+        <label class="form-label">Order</label>
+        <input name="@(prefix).DisplayOrder" type="number" class="form-control" value="@Model.DisplayOrder" />
+    </div>
+    <div class="col-md-1">
+        <div class="form-check">
+            <input name="@(prefix).IsRequired" type="checkbox" class="form-check-input" value="true" @(Model.IsRequired ? "checked" : "") />
+            <label class="form-check-label">Req'd</label>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <button type="button" class="btn btn-outline-danger btn-sm remove-row-btn">Remove</button>
+    </div>
+</div>

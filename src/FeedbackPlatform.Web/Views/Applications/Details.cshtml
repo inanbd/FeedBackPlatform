@@ -3,11 +3,18 @@
     ViewData["Title"] = Model.App.Name;
 }
 
-<h1>@Model.App.Name</h1>
-@if (!string.IsNullOrEmpty(Model.App.Description))
-{
-    <p class="text-muted">@Model.App.Description</p>
-}
+<div class="d-flex justify-content-between align-items-start">
+    <div>
+        <h1>@Model.App.Name</h1>
+        @if (!string.IsNullOrEmpty(Model.App.Description))
+        {
+            <p class="text-muted">@Model.App.Description</p>
+        }
+    </div>
+    <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#curlExampleModal">
+        View curl example
+    </button>
+</div>
 
 @if (Model.NewlyGeneratedKey is not null)
 {
@@ -16,7 +23,7 @@
         <p class="mb-1">Copy it now — for your security, the full key is never shown again.</p>
         <code class="d-block p-2 bg-light border rounded mb-2">@Model.NewlyGeneratedKey.RawKey</code>
         <h6>Try it with curl</h6>
-        <pre class="p-2 bg-dark text-light rounded"><code>@Model.CurlSnippet</code></pre>
+        <pre class="p-2 bg-dark text-light rounded mb-0"><code>@Model.CurlSnippet</code></pre>
     </div>
 }
 
@@ -116,40 +123,144 @@
         }
 
         <hr />
-        <h6>Add a field</h6>
-        <form asp-action="AddCustomField" asp-route-id="@Model.App.Id" method="post" class="row g-2">
+        <h6>Add fields</h6>
+        <form asp-action="AddCustomField" asp-route-id="@Model.App.Id" method="post" id="add-fields-form">
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-            <div class="col-md-2">
-                <label asp-for="NewCustomField.FieldKey" class="form-label"></label>
-                <input asp-for="NewCustomField.FieldKey" class="form-control" placeholder="browser_name" />
+            <div id="field-rows">
+                @for (var i = 0; i < Model.NewCustomFields.Count; i++)
+                {
+                    var rowViewData = new ViewDataDictionary(ViewData) { ["Index"] = i };
+                    <partial name="_CustomFieldRow" model="Model.NewCustomFields[i]" view-data="rowViewData" />
+                }
             </div>
-            <div class="col-md-2">
-                <label asp-for="NewCustomField.Label" class="form-label"></label>
-                <input asp-for="NewCustomField.Label" class="form-control" placeholder="Browser Name" />
-            </div>
-            <div class="col-md-2">
-                <label asp-for="NewCustomField.FieldType" class="form-label"></label>
-                <select asp-for="NewCustomField.FieldType" class="form-select" asp-items="Html.GetEnumSelectList<FeedbackPlatform.Domain.Enums.FeedbackFieldType>()"></select>
-            </div>
-            <div class="col-md-2">
-                <label asp-for="NewCustomField.OptionsCsv" class="form-label"></label>
-                <input asp-for="NewCustomField.OptionsCsv" class="form-control" placeholder="Chrome,Firefox,Safari" />
-            </div>
-            <div class="col-md-1">
-                <label asp-for="NewCustomField.DisplayOrder" class="form-label"></label>
-                <input asp-for="NewCustomField.DisplayOrder" class="form-control" />
-            </div>
-            <div class="col-md-1 d-flex align-items-end">
-                <div class="form-check">
-                    <input asp-for="NewCustomField.IsRequired" class="form-check-input" />
-                    <label asp-for="NewCustomField.IsRequired" class="form-check-label"></label>
-                </div>
-            </div>
-            <div class="col-md-2 d-flex align-items-end">
-                <button type="submit" class="btn btn-primary w-100">Add field</button>
+            <button type="button" id="add-row-btn" class="btn btn-outline-secondary btn-sm mb-3">+ Add another field</button>
+            <div>
+                <button type="submit" class="btn btn-primary">Save fields</button>
             </div>
         </form>
     </div>
 </div>
 
 <a asp-controller="Feedback" asp-action="Index" asp-route-appId="@Model.App.Id" class="btn btn-outline-secondary">View feedback for this app</a>
+
+<div class="modal fade" id="curlExampleModal" tabindex="-1" aria-labelledby="curlExampleModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="curlExampleModalLabel">curl example for @Model.App.Name</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                @if (Model.NewlyGeneratedKey is null)
+                {
+                    <p class="text-muted">
+                        This example uses a placeholder for the API key. Generate a key above to get one with your real key filled in.
+                    </p>
+                }
+                <pre class="p-2 bg-dark text-light rounded mb-0"><code id="curlExampleText">@Model.GeneralCurlSnippet</code></pre>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" id="copyCurlBtn">Copy</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            const rowsContainer = document.getElementById('field-rows');
+            const addBtn = document.getElementById('add-row-btn');
+            const form = document.getElementById('add-fields-form');
+            let nextIndex = @Model.NewCustomFields.Count;
+
+            const fieldTypeOptions = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+                Html.GetEnumSelectList<FeedbackPlatform.Domain.Enums.FeedbackFieldType>()
+                    .Select(o => new { value = o.Value, text = o.Text })));
+
+            function createRow(index) {
+                const wrapper = document.createElement('div');
+                wrapper.innerHTML = buildRowHtml(index);
+                return wrapper.firstElementChild;
+            }
+
+            function buildRowHtml(index) {
+                const options = fieldTypeOptions.map(o => `<option value="${o.value}">${o.text}</option>`).join('');
+                return `
+                    <div class="row g-2 mb-2 field-row align-items-end">
+                        <div class="col-md-2">
+                            <label class="form-label">Field key</label>
+                            <input name="NewCustomFields[${index}].FieldKey" class="form-control" placeholder="browser_name" />
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Label</label>
+                            <input name="NewCustomFields[${index}].Label" class="form-control" placeholder="Browser Name" />
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Type</label>
+                            <select name="NewCustomFields[${index}].FieldType" class="form-select">${options}</select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Options (CSV)</label>
+                            <input name="NewCustomFields[${index}].OptionsCsv" class="form-control" placeholder="Chrome,Firefox,Safari" />
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label">Order</label>
+                            <input name="NewCustomFields[${index}].DisplayOrder" type="number" class="form-control" value="0" />
+                        </div>
+                        <div class="col-md-1">
+                            <div class="form-check">
+                                <input name="NewCustomFields[${index}].IsRequired" type="checkbox" class="form-check-input" value="true" />
+                                <label class="form-check-label">Req'd</label>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-outline-danger btn-sm remove-row-btn">Remove</button>
+                        </div>
+                    </div>`;
+            }
+
+            addBtn.addEventListener('click', function () {
+                rowsContainer.appendChild(createRow(nextIndex));
+                nextIndex++;
+            });
+
+            rowsContainer.addEventListener('click', function (e) {
+                if (!e.target.classList.contains('remove-row-btn')) {
+                    return;
+                }
+                const row = e.target.closest('.field-row');
+                if (rowsContainer.querySelectorAll('.field-row').length > 1) {
+                    row.remove();
+                } else {
+                    row.querySelectorAll('input').forEach(function (input) {
+                        if (input.type === 'checkbox') { input.checked = false; } else { input.value = ''; }
+                    });
+                }
+            });
+
+            // Rows can be added/removed in any order client-side, which can leave gaps in the
+            // NewCustomFields[i] indices; ASP.NET Core's default collection binder stops at the
+            // first missing index, so renumber every row sequentially right before submitting.
+            form.addEventListener('submit', function () {
+                const rows = rowsContainer.querySelectorAll('.field-row');
+                rows.forEach(function (row, idx) {
+                    row.querySelectorAll('[name]').forEach(function (input) {
+                        input.name = input.name.replace(/NewCustomFields\[\d+\]/, `NewCustomFields[${idx}]`);
+                    });
+                });
+            });
+
+            const copyBtn = document.getElementById('copyCurlBtn');
+            copyBtn.addEventListener('click', function () {
+                const text = document.getElementById('curlExampleText').textContent;
+                navigator.clipboard.writeText(text).then(function () {
+                    const original = copyBtn.textContent;
+                    copyBtn.textContent = 'Copied!';
+                    setTimeout(function () { copyBtn.textContent = original; }, 1500);
+                });
+            });
+        })();
+    </script>
+}

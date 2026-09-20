@@ -1,10 +1,13 @@
+using System.Text;
 using FeedbackPlatform.Application.Features.ApiKeys.Commands;
 using FeedbackPlatform.Application.Features.ApiKeys.Queries;
 using FeedbackPlatform.Application.Features.CustomFields.Commands;
 using FeedbackPlatform.Application.Features.CustomFields.Queries;
 using FeedbackPlatform.Application.Features.FeedbackApps.Commands;
 using FeedbackPlatform.Application.Features.FeedbackApps.Queries;
+using FeedbackPlatform.Domain.Enums;
 using FeedbackPlatform.Web.Models.Applications;
+using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -64,22 +67,52 @@ public sealed class ApplicationsController(IMediator mediator) : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> AddCustomField(
-        Guid id, CreateCustomFieldViewModel newCustomField, CancellationToken cancellationToken)
+        Guid id, List<CreateCustomFieldViewModel> newCustomFields, CancellationToken cancellationToken)
     {
-        // The parameter name doubles as the model-binding prefix, and must match the "NewCustomField.*"
-        // field names the Details view posts (asp-for="NewCustomField.FieldKey" etc.) or binding silently no-ops.
-        if (!ModelState.IsValid)
+        // The parameter name doubles as the model-binding prefix, and must match the "NewCustomFields[i].*"
+        // field names the Details view posts (name="NewCustomFields[0].FieldKey" etc.) or binding silently no-ops.
+        // Rows left completely blank (an unused extra row) are dropped rather than treated as errors.
+        var filledRows = newCustomFields
+            .Where(f => !string.IsNullOrWhiteSpace(f.FieldKey) || !string.IsNullOrWhiteSpace(f.Label))
+            .ToList();
+
+        if (filledRows.Count == 0)
+        {
+            ModelState.AddModelError(string.Empty, "Add at least one field.");
+        }
+
+        if (!ModelState.IsValid || filledRows.Count == 0)
         {
             var viewModel = await BuildDetailsViewModelAsync(id, newKey: null, cancellationToken);
-            viewModel.NewCustomField = newCustomField;
+            viewModel.NewCustomFields = newCustomFields.Count > 0 ? newCustomFields : [new()];
             return View(nameof(Details), viewModel);
         }
 
-        await mediator.Send(new CreateFeedbackFieldDefinitionCommand(
-            id, newCustomField.FieldKey, newCustomField.Label, newCustomField.FieldType,
-            newCustomField.IsRequired, newCustomField.DisplayOrder, newCustomField.OptionsCsv), cancellationToken);
+        try
+        {
+            await mediator.Send(new CreateFeedbackFieldDefinitionsCommand(
+                id,
+                filledRows
+                    .Select(f => new FieldDefinitionInput(
+                        f.FieldKey, f.Label, f.FieldType, f.IsRequired, f.DisplayOrder, f.OptionsCsv))
+                    .ToList()),
+                cancellationToken);
+        }
+        catch (ValidationException ex)
+        {
+            foreach (var error in ex.Errors)
+            {
+                ModelState.AddModelError(string.Empty, error.ErrorMessage);
+            }
 
-        TempData["StatusMessage"] = "Custom field added.";
+            var viewModel = await BuildDetailsViewModelAsync(id, newKey: null, cancellationToken);
+            viewModel.NewCustomFields = newCustomFields;
+            return View(nameof(Details), viewModel);
+        }
+
+        TempData["StatusMessage"] = filledRows.Count == 1
+            ? "Custom field added."
+            : $"{filledRows.Count} custom fields added.";
         return RedirectToAction(nameof(Details), new { id });
     }
 
@@ -99,16 +132,8 @@ public sealed class ApplicationsController(IMediator mediator) : Controller
         var apiKeys = await mediator.Send(new ListApiKeysQuery(id), cancellationToken);
         var customFields = await mediator.Send(new ListFeedbackFieldDefinitionsQuery(id), cancellationToken);
 
-        string? curlSnippet = null;
-        if (newKey is not null)
-        {
-            var baseUrl = $"{Request.Scheme}://{Request.Host}";
-            curlSnippet =
-                $"curl -X POST {baseUrl}/api/v1/feedback \\\n" +
-                $"  -H \"X-Api-Key: {newKey.RawKey}\" \\\n" +
-                "  -H \"Content-Type: application/json\" \\\n" +
-                "  -d '{\"appVersion\":\"1.0.0\",\"title\":\"Great app!\",\"comment\":\"Loving it so far.\",\"starRating\":5}'";
-        }
+        var baseUrl = $"{Request.Scheme}://{Request.Host}";
+        var apiKeyForExample = newKey?.RawKey ?? "YOUR_API_KEY";
 
         return new ApplicationDetailsViewModel
         {
@@ -116,8 +141,44 @@ public sealed class ApplicationsController(IMediator mediator) : Controller
             ApiKeys = apiKeys,
             CustomFields = customFields,
             NewlyGeneratedKey = newKey,
-            CurlSnippet = curlSnippet,
+            CurlSnippet = newKey is not null ? BuildCurlSnippet(baseUrl, apiKeyForExample, customFields) : null,
+            GeneralCurlSnippet = BuildCurlSnippet(baseUrl, apiKeyForExample, customFields),
             CanManageRateLimit = User.IsInRole("Admin")
         };
     }
+
+    private static string BuildCurlSnippet(
+        string baseUrl, string apiKey, IReadOnlyList<Application.Features.CustomFields.Queries.FeedbackFieldDefinitionDto> customFields)
+    {
+        var body = new Dictionary<string, object?>
+        {
+            ["appVersion"] = "1.0.0",
+            ["title"] = "Great app!",
+            ["comment"] = "Loving it so far.",
+            ["starRating"] = 5
+        };
+
+        if (customFields.Count > 0)
+        {
+            body["customFields"] = customFields.ToDictionary(f => f.FieldKey, ExampleValue);
+        }
+
+        var json = System.Text.Json.JsonSerializer.Serialize(body);
+
+        return
+            $"curl -X POST {baseUrl}/api/v1/feedback \\\n" +
+            $"  -H \"X-Api-Key: {apiKey}\" \\\n" +
+            "  -H \"Content-Type: application/json\" \\\n" +
+            $"  -d '{json}'";
+    }
+
+    private static string ExampleValue(Application.Features.CustomFields.Queries.FeedbackFieldDefinitionDto field) =>
+        field.FieldType switch
+        {
+            FeedbackFieldType.Number => "0",
+            FeedbackFieldType.Boolean => "true",
+            FeedbackFieldType.Date => DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd"),
+            FeedbackFieldType.Select => field.OptionsCsv?.Split(',').FirstOrDefault()?.Trim() ?? "option",
+            _ => "example value"
+        };
 }
