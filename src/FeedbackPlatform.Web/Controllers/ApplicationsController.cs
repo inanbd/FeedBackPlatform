@@ -113,7 +113,6 @@ public sealed class ApplicationsController(IMediator mediator) : Controller
         TempData["StatusMessage"] = filledRows.Count == 1
             ? "Custom field added."
             : $"{filledRows.Count} custom fields added.";
-        TempData["ShowCurlModal"] = true;
         return RedirectToAction(nameof(Details), new { id });
     }
 

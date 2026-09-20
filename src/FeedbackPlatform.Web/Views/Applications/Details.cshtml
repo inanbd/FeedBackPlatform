@@ -261,16 +261,6 @@
                     setTimeout(function () { copyBtn.textContent = original; }, 1500);
                 });
             });
-
-            @if (TempData["ShowCurlModal"] != null)
-            {
-                <text>
-                // The page was just reloaded after saving custom field(s); the curl example above
-                // already reflects them (fetched fresh from the server), so pop it open automatically
-                // instead of making the user click "View curl example" again.
-                new bootstrap.Modal(document.getElementById('curlExampleModal')).show();
-                </text>
-            }
         })();
     </script>
 }
