@@ -1,0 +1,95 @@
+@model FeedbackPlatform.Web.Models.Feedback.FeedbackIndexViewModel
+@{
+    ViewData["Title"] = "Feedback";
+}
+
+<h1>Feedback</h1>
+
+<form method="get" class="row g-2 mb-3">
+    <div class="col-auto">
+        <select name="appId" class="form-select" onchange="this.form.submit()">
+            <option value="">All applications</option>
+            @foreach (var app in Model.AppOptions)
+            {
+                <option value="@app.Id" selected="@(Model.AppIdFilter == app.Id)">@app.Name</option>
+            }
+        </select>
+    </div>
+    <div class="col-auto">
+        <select name="minRating" class="form-select" onchange="this.form.submit()">
+            <option value="">Any rating</option>
+            @for (var i = 1; i <= 5; i++)
+            {
+                <option value="@i" selected="@(Model.MinStarRating == i)">@i+ stars</option>
+            }
+        </select>
+    </div>
+    <div class="col-auto">
+        <button type="submit" class="btn btn-outline-secondary">Filter</button>
+    </div>
+</form>
+
+@if (Model.Feedback.Items.Count == 0)
+{
+    <p>No feedback found.</p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Application</th>
+                <th>Title</th>
+                <th>Rating</th>
+                <th>Version</th>
+                <th>Reporter</th>
+                <th>IP</th>
+                <th>Received</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var fb in Model.Feedback.Items)
+            {
+                <tr>
+                    <td>@Model.AppName(fb.FeedbackAppId)</td>
+                    <td>
+                        <strong>@fb.Title</strong>
+                        <div class="text-muted small">@fb.Comment</div>
+                        @if (!string.IsNullOrEmpty(fb.CustomFieldsJson) && fb.CustomFieldsJson != "{}")
+                        {
+                            <details class="small text-muted">
+                                <summary>Custom fields</summary>
+                                <code>@fb.CustomFieldsJson</code>
+                            </details>
+                        }
+                    </td>
+                    <td>@(new string('★', fb.StarRating))@(new string('☆', 5 - fb.StarRating))</td>
+                    <td>@fb.AppVersion</td>
+                    <td>
+                        @(fb.ReporterName ?? "(anonymous)")
+                        @if (!string.IsNullOrEmpty(fb.ReporterContact))
+                        {
+                            <div class="text-muted small">@fb.ReporterContact</div>
+                        }
+                    </td>
+                    <td>@fb.IpAddress</td>
+                    <td>@fb.CreatedAtUtc.ToLocalTime().ToString("g")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (Model.Feedback.TotalPages > 1)
+    {
+        <nav>
+            <ul class="pagination">
+                @for (var p = 1; p <= Model.Feedback.TotalPages; p++)
+                {
+                    <li class="page-item @(p == Model.Feedback.Page ? "active" : "")">
+                        <a class="page-link" asp-action="Index" asp-route-appId="@Model.AppIdFilter" asp-route-minRating="@Model.MinStarRating" asp-route-page="@p">@p</a>
+                    </li>
+                }
+            </ul>
+        </nav>
+    }
+}

@@ -1,0 +1,30 @@
+@{
+    ViewData["Title"] = "Home";
+}
+
+<div class="px-4 py-5 text-center">
+    <h1 class="display-5 fw-bold">Feedback Platform</h1>
+    <p class="col-lg-8 mx-auto lead">
+        Collect feedback from every website and app you own, in one place. Register an application,
+        generate an API key, and start sending in feedback with a single curl command.
+    </p>
+    <div class="d-flex justify-content-center gap-2">
+        <a asp-controller="Account" asp-action="Register" class="btn btn-primary btn-lg px-4">Get started</a>
+        <a asp-controller="Docs" asp-action="Index" class="btn btn-outline-secondary btn-lg px-4">Read the docs</a>
+    </div>
+</div>
+
+<div class="row g-4 py-4">
+    <div class="col-md-4">
+        <h5>1. Register your app</h5>
+        <p>Create an application in the portal for each website or app you want to collect feedback from.</p>
+    </div>
+    <div class="col-md-4">
+        <h5>2. Generate an API key</h5>
+        <p>Each application gets its own API key. Use it in the <code>X-Api-Key</code> header when submitting feedback.</p>
+    </div>
+    <div class="col-md-4">
+        <h5>3. Watch the dashboard</h5>
+        <p>See feedback volume and star ratings roll in on your dashboard, with configurable rate limiting to keep the API safe.</p>
+    </div>
+</div>

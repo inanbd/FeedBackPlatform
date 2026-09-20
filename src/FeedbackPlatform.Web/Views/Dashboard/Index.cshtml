@@ -1,0 +1,171 @@
+@using System.Text.Json
+@model FeedbackPlatform.Web.Models.Dashboard.DashboardViewModel
+@{
+    ViewData["Title"] = "Dashboard";
+
+    var countByDate = Model.Stats.DailyCounts.ToDictionary(d => d.Date, d => d.Count);
+    var allDates = new List<DateOnly>();
+    for (var d = Model.FromDate; d <= Model.ToDate; d = d.AddDays(1))
+    {
+        allDates.Add(d);
+    }
+
+    var dailyLabels = allDates.Select(d => d.ToString("MMM d")).ToArray();
+    var dailyValues = allDates.Select(d => countByDate.GetValueOrDefault(d, 0)).ToArray();
+
+    var ratingByStar = Model.Stats.RatingDistribution.ToDictionary(r => r.StarRating, r => r.Count);
+    var ratingLabels = new[] { "1 star", "2 stars", "3 stars", "4 stars", "5 stars" };
+    var ratingValues = Enumerable.Range(1, 5).Select(star => ratingByStar.GetValueOrDefault(star, 0)).ToArray();
+}
+
+<style>
+    .viz-root {
+        color-scheme: light;
+        --surface-1: #fcfcfb;
+        --text-primary: #0b0b0b;
+        --text-secondary: #52514e;
+        --muted: #898781;
+        --grid: #e1e0d9;
+        --series-1: #2a78d6;
+    }
+
+    @@media (prefers-color-scheme: dark) {
+        :root:where(:not([data-theme="light"])) .viz-root {
+            color-scheme: dark;
+            --surface-1: #1a1a19;
+            --text-primary: #ffffff;
+            --text-secondary: #c3c2b7;
+            --muted: #898781;
+            --grid: #2c2c2a;
+            --series-1: #3987e5;
+        }
+    }
+</style>
+
+<h1>Dashboard</h1>
+
+<form method="get" class="row g-2 mb-3">
+    <div class="col-auto">
+        <select name="appId" class="form-select" onchange="this.form.submit()">
+            <option value="">All applications</option>
+            @foreach (var app in Model.AppOptions)
+            {
+                <option value="@app.Id" selected="@(Model.AppIdFilter == app.Id)">@app.Name</option>
+            }
+        </select>
+    </div>
+</form>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card text-center p-3">
+            <div class="text-muted small">Total feedback</div>
+            <div class="display-6">@Model.Stats.TotalCount</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center p-3">
+            <div class="text-muted small">Average rating (all time)</div>
+            <div class="display-6">@Model.AverageRating.ToString("0.0") / 5</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center p-3">
+            <div class="text-muted small">Last @allDates.Count days</div>
+            <div class="display-6">@dailyValues.Sum()</div>
+        </div>
+    </div>
+</div>
+
+<div class="viz-root p-3 rounded mb-4" style="background: var(--surface-1);">
+    <h5 style="color: var(--text-primary);">Feedback volume &mdash; last @allDates.Count days</h5>
+    <canvas id="dailyVolumeChart" height="90" role="img" aria-label="Line chart of daily feedback volume"></canvas>
+</div>
+
+<div class="viz-root p-3 rounded mb-4" style="background: var(--surface-1);">
+    <h5 style="color: var(--text-primary);">Star rating distribution</h5>
+    <canvas id="ratingChart" height="90" role="img" aria-label="Bar chart of feedback count by star rating"></canvas>
+</div>
+
+<details class="mb-4">
+    <summary>View as table</summary>
+    <div class="row mt-2">
+        <div class="col-md-6">
+            <table class="table table-sm">
+                <thead><tr><th>Date</th><th>Count</th></tr></thead>
+                <tbody>
+                    @for (var i = 0; i < allDates.Count; i++)
+                    {
+                        <tr><td>@dailyLabels[i]</td><td>@dailyValues[i]</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="col-md-6">
+            <table class="table table-sm">
+                <thead><tr><th>Rating</th><th>Count</th></tr></thead>
+                <tbody>
+                    @for (var i = 0; i < ratingLabels.Length; i++)
+                    {
+                        <tr><td>@ratingLabels[i]</td><td>@ratingValues[i]</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</details>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script>
+        const rootStyles = getComputedStyle(document.querySelector('.viz-root'));
+        const seriesColor = rootStyles.getPropertyValue('--series-1').trim();
+        const gridColor = rootStyles.getPropertyValue('--grid').trim();
+        const textColor = rootStyles.getPropertyValue('--text-secondary').trim();
+
+        new Chart(document.getElementById('dailyVolumeChart'), {
+            type: 'line',
+            data: {
+                labels: @Html.Raw(JsonSerializer.Serialize(dailyLabels)),
+                datasets: [{
+                    label: 'Feedback received',
+                    data: @Html.Raw(JsonSerializer.Serialize(dailyValues)),
+                    borderColor: seriesColor,
+                    backgroundColor: seriesColor,
+                    borderWidth: 2,
+                    pointRadius: 2,
+                    tension: 0.2,
+                    fill: false
+                }]
+            },
+            options: {
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { color: gridColor }, ticks: { color: textColor } },
+                    y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor, precision: 0 } }
+                }
+            }
+        });
+
+        new Chart(document.getElementById('ratingChart'), {
+            type: 'bar',
+            data: {
+                labels: @Html.Raw(JsonSerializer.Serialize(ratingLabels)),
+                datasets: [{
+                    label: 'Feedback count',
+                    data: @Html.Raw(JsonSerializer.Serialize(ratingValues)),
+                    backgroundColor: seriesColor,
+                    borderRadius: 4,
+                    maxBarThickness: 48
+                }]
+            },
+            options: {
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { display: false }, ticks: { color: textColor } },
+                    y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor, precision: 0 } }
+                }
+            }
+        });
+    </script>
+}

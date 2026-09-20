@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/FeedbackPlatform.Application/FeedbackPlatform.Application.csproj" />
+    <Project Path="src/FeedbackPlatform.Domain/FeedbackPlatform.Domain.csproj" />
+    <Project Path="src/FeedbackPlatform.Infrastructure/FeedbackPlatform.Infrastructure.csproj" />
+    <Project Path="src/FeedbackPlatform.Web/FeedbackPlatform.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/FeedbackPlatform.Application.Tests/FeedbackPlatform.Application.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,155 @@
+@model FeedbackPlatform.Web.Models.Applications.ApplicationDetailsViewModel
+@{
+    ViewData["Title"] = Model.App.Name;
+}
+
+<h1>@Model.App.Name</h1>
+@if (!string.IsNullOrEmpty(Model.App.Description))
+{
+    <p class="text-muted">@Model.App.Description</p>
+}
+
+@if (Model.NewlyGeneratedKey is not null)
+{
+    <div class="alert alert-warning">
+        <h5>Your new API key</h5>
+        <p class="mb-1">Copy it now — for your security, the full key is never shown again.</p>
+        <code class="d-block p-2 bg-light border rounded mb-2">@Model.NewlyGeneratedKey.RawKey</code>
+        <h6>Try it with curl</h6>
+        <pre class="p-2 bg-dark text-light rounded"><code>@Model.CurlSnippet</code></pre>
+    </div>
+}
+
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>API Keys</span>
+        <form asp-action="GenerateApiKey" asp-route-id="@Model.App.Id" method="post" class="m-0">
+            <button type="submit" class="btn btn-sm btn-primary">Generate new key</button>
+        </form>
+    </div>
+    <div class="card-body">
+        @if (Model.ApiKeys.Count == 0)
+        {
+            <p class="mb-0 text-muted">No API keys yet. Generate one to start sending feedback from this application.</p>
+        }
+        else
+        {
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Prefix</th>
+                        <th>Created</th>
+                        <th>Last used</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var key in Model.ApiKeys)
+                    {
+                        <tr>
+                            <td><code>@key.KeyPrefix&hellip;</code></td>
+                            <td>@key.CreatedAtUtc.ToLocalTime().ToString("g")</td>
+                            <td>@(key.LastUsedAtUtc?.ToLocalTime().ToString("g") ?? "never")</td>
+                            <td>
+                                @if (key.IsActive)
+                                {
+                                    <span class="badge bg-success">Active</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">Revoked</span>
+                                }
+                            </td>
+                            <td>
+                                @if (key.IsActive)
+                                {
+                                    <form asp-action="RevokeApiKey" asp-route-id="@Model.App.Id" asp-route-apiKeyId="@key.Id" method="post" class="m-0">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Revoke</button>
+                                    </form>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">Custom Feedback Fields</div>
+    <div class="card-body">
+        <p class="text-muted">Add extra fields your feedback form should collect (e.g. "browser", "device_type"). Client apps can fetch this schema from <code>GET /api/v1/feedback/fields</code>.</p>
+
+        @if (Model.CustomFields.Count > 0)
+        {
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Key</th>
+                        <th>Label</th>
+                        <th>Type</th>
+                        <th>Required</th>
+                        <th>Order</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var field in Model.CustomFields)
+                    {
+                        <tr>
+                            <td><code>@field.FieldKey</code></td>
+                            <td>@field.Label</td>
+                            <td>@field.FieldType</td>
+                            <td>@(field.IsRequired ? "Yes" : "No")</td>
+                            <td>@field.DisplayOrder</td>
+                            <td>
+                                <form asp-action="DeleteCustomField" asp-route-id="@Model.App.Id" asp-route-fieldId="@field.Id" method="post" class="m-0">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+
+        <hr />
+        <h6>Add a field</h6>
+        <form asp-action="AddCustomField" asp-route-id="@Model.App.Id" method="post" class="row g-2">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            <div class="col-md-2">
+                <label asp-for="NewCustomField.FieldKey" class="form-label"></label>
+                <input asp-for="NewCustomField.FieldKey" class="form-control" placeholder="browser_name" />
+            </div>
+            <div class="col-md-2">
+                <label asp-for="NewCustomField.Label" class="form-label"></label>
+                <input asp-for="NewCustomField.Label" class="form-control" placeholder="Browser Name" />
+            </div>
+            <div class="col-md-2">
+                <label asp-for="NewCustomField.FieldType" class="form-label"></label>
+                <select asp-for="NewCustomField.FieldType" class="form-select" asp-items="Html.GetEnumSelectList<FeedbackPlatform.Domain.Enums.FeedbackFieldType>()"></select>
+            </div>
+            <div class="col-md-2">
+                <label asp-for="NewCustomField.OptionsCsv" class="form-label"></label>
+                <input asp-for="NewCustomField.OptionsCsv" class="form-control" placeholder="Chrome,Firefox,Safari" />
+            </div>
+            <div class="col-md-1">
+                <label asp-for="NewCustomField.DisplayOrder" class="form-label"></label>
+                <input asp-for="NewCustomField.DisplayOrder" class="form-control" />
+            </div>
+            <div class="col-md-1 d-flex align-items-end">
+                <div class="form-check">
+                    <input asp-for="NewCustomField.IsRequired" class="form-check-input" />
+                    <label asp-for="NewCustomField.IsRequired" class="form-check-label"></label>
+                </div>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">Add field</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<a asp-controller="Feedback" asp-action="Index" asp-route-appId="@Model.App.Id" class="btn btn-outline-secondary">View feedback for this app</a>

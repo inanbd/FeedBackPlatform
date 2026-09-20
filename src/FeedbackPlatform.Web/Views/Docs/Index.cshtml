@@ -1,0 +1,104 @@
+@{
+    ViewData["Title"] = "Documentation";
+}
+
+<div class="row">
+    <div class="col-md-3">
+        <nav id="docs-nav" class="sticky-top pt-3">
+            <div class="nav flex-column">
+                <a class="nav-link" href="#getting-started">Getting started</a>
+                <a class="nav-link" href="#api-auth">API authentication</a>
+                <a class="nav-link" href="#submit-feedback">Submit feedback</a>
+                <a class="nav-link" href="#custom-fields">Custom fields</a>
+                <a class="nav-link" href="#rate-limiting">Rate limiting</a>
+                <a class="nav-link" href="#errors">Errors</a>
+            </div>
+        </nav>
+    </div>
+    <div class="col-md-9">
+        <h1>Documentation</h1>
+
+        <section id="getting-started" class="mb-5">
+            <h2>Getting started (for platform users)</h2>
+            <ol>
+                <li><a asp-controller="Account" asp-action="Register">Create an account</a> &mdash; anyone can sign up and use the platform for their own websites and apps.</li>
+                <li>Go to <a asp-controller="Applications" asp-action="Index">My Applications</a> and register a new application for each website or app you want to collect feedback from.</li>
+                <li>Open the application and click <strong>Generate new key</strong>. Copy the key immediately &mdash; it is shown only once. You'll also get a ready-to-run <code>curl</code> command.</li>
+                <li>Optionally add <strong>custom fields</strong> to the application (e.g. "browser", "device_type") that your feedback form should collect.</li>
+                <li>Start sending feedback from your app using the API below. It shows up on your <a asp-controller="Dashboard" asp-action="Index">Dashboard</a> and <a asp-controller="Feedback" asp-action="Index">Feedback</a> pages, and (if configured) you'll get an email each time.</li>
+            </ol>
+            <p>Platform administrators can see feedback and applications from every user, and configure API rate limits.</p>
+        </section>
+
+        <section id="api-auth" class="mb-5">
+            <h2>API authentication</h2>
+            <p>Every request to the feedback API must include the API key for the application it belongs to, in the <code>X-Api-Key</code> header:</p>
+            <pre class="p-2 bg-dark text-light rounded"><code>X-Api-Key: fbk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</code></pre>
+            <p>Keys are generated from the <a asp-controller="Applications" asp-action="Index">application page</a> and can be revoked at any time. A revoked key is rejected immediately.</p>
+        </section>
+
+        <section id="submit-feedback" class="mb-5">
+            <h2>Submit feedback</h2>
+            <p><code>POST /api/v1/feedback</code></p>
+            <p>Required fields: <code>appVersion</code>, <code>title</code>, <code>comment</code>, <code>starRating</code> (1&ndash;5). Optional: <code>reporterName</code>, <code>reporterContact</code>, <code>customFields</code>. The server automatically records the caller's IP address.</p>
+
+            <pre class="p-2 bg-dark text-light rounded"><code>curl -X POST https://your-domain.example/api/v1/feedback \
+  -H "X-Api-Key: fbk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "appVersion": "1.4.2",
+        "title": "Great app!",
+        "comment": "Loving it so far, though the export button is hard to find.",
+        "starRating": 5,
+        "reporterName": "Jane Doe",
+        "reporterContact": "jane@example.com",
+        "customFields": {
+          "browser_name": "Chrome"
+        }
+      }'</code></pre>
+
+            <p>A successful call returns <code>201 Created</code> with the new feedback's id.</p>
+        </section>
+
+        <section id="custom-fields" class="mb-5">
+            <h2>Custom fields</h2>
+            <p>
+                Each application can define its own extra fields (text, number, boolean, date, or a fixed set of
+                options) from the <a asp-controller="Applications" asp-action="Index">application page</a>. Required
+                fields must be present in <code>customFields</code> or the submission is rejected with a
+                <code>400</code> response naming the missing field.
+            </p>
+            <p>Client apps can fetch an application's current field schema at any time:</p>
+            <pre class="p-2 bg-dark text-light rounded"><code>curl https://your-domain.example/api/v1/feedback/fields \
+  -H "X-Api-Key: fbk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"</code></pre>
+        </section>
+
+        <section id="rate-limiting" class="mb-5">
+            <h2>Rate limiting</h2>
+            <p>
+                Each API key is limited to a number of requests per minute. There is a platform-wide default,
+                and administrators may override the limit for any individual application. Exceeding the limit
+                returns:
+            </p>
+            <pre class="p-2 bg-dark text-light rounded"><code>HTTP/1.1 429 Too Many Requests
+Retry-After: 60
+
+{ "error": "Rate limit exceeded.", "limitPerMinute": 60 }</code></pre>
+        </section>
+
+        <section id="errors" class="mb-5">
+            <h2>Errors</h2>
+            <p>Errors are returned as an RFC 7807 <code>application/problem+json</code> body:</p>
+            <table class="table table-sm">
+                <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
+                <tbody>
+                    <tr><td>400</td><td>Validation failed (missing/invalid field, or a required custom field)</td></tr>
+                    <tr><td>401</td><td>Missing, invalid, or revoked API key</td></tr>
+                    <tr><td>404</td><td>Referenced resource not found</td></tr>
+                    <tr><td>429</td><td>Rate limit exceeded</td></tr>
+                    <tr><td>500</td><td>Unexpected server error</td></tr>
+                </tbody>
+            </table>
+        </section>
+    </div>
+</div>

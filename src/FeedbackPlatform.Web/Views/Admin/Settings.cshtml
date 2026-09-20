@@ -1,0 +1,25 @@
+@model FeedbackPlatform.Web.Models.Admin.AdminSettingsViewModel
+@{
+    ViewData["Title"] = "Admin Settings";
+}
+
+<h1>Rate Limit Settings</h1>
+<p class="text-muted">This is the default requests-per-minute limit applied to every API key. Individual applications can be overridden from the <a asp-action="Applications">Applications</a> page.</p>
+
+<div class="row">
+    <div class="col-md-4">
+        <form asp-action="Settings" method="post">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            <div class="mb-3">
+                <label asp-for="GlobalRateLimitPerMinute" class="form-label"></label>
+                <input asp-for="GlobalRateLimitPerMinute" class="form-control" />
+                <span asp-validation-for="GlobalRateLimitPerMinute" class="text-danger"></span>
+            </div>
+            <button type="submit" class="btn btn-primary">Save</button>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -1,0 +1,39 @@
+@model IReadOnlyList<FeedbackPlatform.Application.Features.FeedbackApps.Queries.FeedbackAppAdminDto>
+@{
+    ViewData["Title"] = "Admin - All Applications";
+}
+
+<h1>All Applications</h1>
+<p><a asp-action="Settings">Global rate limit settings</a></p>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Owner</th>
+            <th>Created</th>
+            <th>Rate limit override (req/min)</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var app in Model)
+        {
+            <tr>
+                <td>@app.Name</td>
+                <td>@app.OwnerDisplayName <span class="text-muted">(@app.OwnerEmail)</span></td>
+                <td>@app.CreatedAtUtc.ToLocalTime().ToString("g")</td>
+                <td>
+                    <form asp-action="SetAppRateLimitOverride" asp-route-id="@app.Id" method="post" class="d-flex gap-2">
+                        <input type="number" name="requestsPerMinute" class="form-control form-control-sm" style="width:100px"
+                               value="@app.RateLimitPerMinuteOverride" placeholder="default" min="1" />
+                        <button type="submit" class="btn btn-sm btn-outline-primary">Save</button>
+                    </form>
+                </td>
+                <td>
+                    <a asp-controller="Feedback" asp-action="Index" asp-route-appId="@app.Id" class="btn btn-sm btn-outline-secondary">Feedback</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
